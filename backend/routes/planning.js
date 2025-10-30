@@ -1,10 +1,15 @@
 
 import express from 'express';
 import fetch from 'node-fetch';
+import mongoose from 'mongoose';
+import Plan from '../models/Plan.js';
 const router = express.Router();
 
 // Generate teaching plan endpoint
 router.post('/generate-plan', async (req, res) => {
+  // Set a longer timeout for this specific route (90 seconds)
+  req.setTimeout(90000);
+  
   try {
     const { syllabus, subject, grade, duration } = req.body;
 
@@ -23,6 +28,7 @@ router.post('/generate-plan', async (req, res) => {
     }
 
     console.log(`🎯 Generating plan for ${subject}, Grade ${grade}, ${duration} weeks`);
+    console.log(`⏱️ Request timeout set to 90 seconds`);
 
     // Create the prompt for Gemini
     const prompt = `You are an expert educational AI assistant helping teachers create comprehensive semester plans.
@@ -63,59 +69,97 @@ Return ONLY the JSON object, no additional text.`;
     const apiKey = process.env.GEMINI_API_KEY;
     console.log('🔑 API Key exists:', !!apiKey);
 
-    console.log('🌐 Making request to Gemini API...');
-    const geminiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-goog-api-key": apiKey
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt }
-            ]
-          }
-        ]
-      })
-    });
-    
-    console.log('📡 Gemini API response status:', geminiRes.status);
-    const geminiData = await geminiRes.json();
-    console.log('🔍 Gemini API response:', JSON.stringify(geminiData, null, 2));
-    
-    // Parse Gemini response
+    // Initialize teachingPlan variable outside try blocks
     let teachingPlan = {};
+
+    console.log('🌐 Making request to Gemini API...');
+    
+    // Add timeout to the fetch request (60 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    
     try {
-      const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      console.log('📝 Extracted text:', text);
+      const geminiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt }
+              ]
+            }
+          ]
+        }),
+        signal: controller.signal
+      });
       
-      // Extract JSON from markdown code block if present
-      let jsonText = text;
-      if (text.includes('```json')) {
-        const startIndex = text.indexOf('```json') + 7;
-        const endIndex = text.lastIndexOf('```');
-        jsonText = text.substring(startIndex, endIndex).trim();
-        console.log('🔧 Extracted JSON from markdown:', jsonText.substring(0, 200) + '...');
-      }
+      clearTimeout(timeoutId);
       
-      teachingPlan = JSON.parse(jsonText);
+      console.log('📡 Gemini API response status:', geminiRes.status);
+      const geminiData = await geminiRes.json();
+      console.log('🔍 Gemini API response:', JSON.stringify(geminiData, null, 2));
       
-      // Ensure assessments are in the correct format (array of strings)
-      if (teachingPlan.assessments && Array.isArray(teachingPlan.assessments)) {
-        teachingPlan.assessments = teachingPlan.assessments.map(assessment => {
-          if (typeof assessment === 'object' && assessment.type) {
-            return `${assessment.type} (${assessment.timing}): ${assessment.description}`;
+      // Check if the API call was successful
+      if (!geminiRes.ok || geminiData.error) {
+        const errorMessage = geminiData.error?.message || 'Unknown API error';
+        const errorCode = geminiData.error?.code || geminiRes.status;
+        
+        console.error('❌ Gemini API Error:', errorCode, errorMessage);
+        console.log('🔄 Using fallback plan due to API error...');
+        
+        // Generate fallback plan instead of returning error
+        teachingPlan = generateFallbackPlan(subject, grade, duration);
+      } else {
+        // Parse Gemini response
+        try {
+          const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          console.log('📝 Extracted text:', text);
+          
+          // Extract JSON from markdown code block if present
+          let jsonText = text;
+          if (text.includes('```json')) {
+            const startIndex = text.indexOf('```json') + 7;
+            const endIndex = text.lastIndexOf('```');
+            jsonText = text.substring(startIndex, endIndex).trim();
+            console.log('🔧 Extracted JSON from markdown:', jsonText.substring(0, 200) + '...');
           }
-          return assessment.toString();
-        });
+          
+          teachingPlan = JSON.parse(jsonText);
+          
+          // Ensure assessments are in the correct format (array of strings)
+          if (teachingPlan.assessments && Array.isArray(teachingPlan.assessments)) {
+            teachingPlan.assessments = teachingPlan.assessments.map(assessment => {
+              if (typeof assessment === 'object' && assessment.type) {
+                return `${assessment.type} (${assessment.timing}): ${assessment.description}`;
+              }
+              return assessment.toString();
+            });
+          }
+          
+          console.log('🎉 Successfully parsed teaching plan with', teachingPlan.semester_plan?.length, 'weeks');
+        } catch (parseError) {
+          console.error('❌ JSON Parse Error:', parseError);
+          console.log('🔄 Generating fallback teaching plan...');
+          
+          // Generate a basic fallback plan
+          teachingPlan = generateFallbackPlan(subject, grade, duration);
+        }
+      }
+    } catch (fetchError) {
+      console.error('❌ Gemini API Fetch Error:', fetchError.message);
+      
+      if (fetchError.name === 'AbortError') {
+        console.log('⏱️ Request timed out after 60 seconds, using fallback plan');
+      } else {
+        console.log('🔄 Network error, using fallback plan');
       }
       
-      console.log('🎉 Successfully parsed teaching plan with', teachingPlan.semester_plan?.length, 'weeks');
-    } catch (e) {
-      console.error('❌ JSON Parse Error:', e);
-      return res.status(500).json({ error: 'Failed to parse Gemini response', details: geminiData });
+      // Generate fallback plan on timeout or network error
+      teachingPlan = generateFallbackPlan(subject, grade, duration);
     }
 
     // Add metadata
@@ -131,6 +175,35 @@ Return ONLY the JSON object, no additional text.`;
     };
 
     console.log(`✅ Successfully generated plan with ${response.metadata.total_weeks} weeks`);
+
+    // Save to MongoDB if connected
+    try {
+      if (mongoose.connection.readyState === 1) {
+        const savedPlan = await Plan.create({
+          teacherName: req.body.teacherName || 'Anonymous',
+          subject: subject,
+          grade: grade,
+          duration: parseInt(duration),
+          syllabusText: syllabus,
+          semesterPlan: teachingPlan.semester_plan,
+          lessonAids: teachingPlan.lesson_aids || [],
+          assessments: typeof teachingPlan.assessments === 'string' 
+            ? [teachingPlan.assessments] 
+            : (teachingPlan.assessments || [])
+        });
+        
+        console.log(`💾 Teaching plan saved to MongoDB with ID: ${savedPlan._id}`);
+        response.savedPlanId = savedPlan._id;
+        response.saved = true;
+      } else {
+        console.log('⚠️  MongoDB not connected - plan not saved to database');
+        response.saved = false;
+      }
+    } catch (saveError) {
+      console.error('Error saving plan to MongoDB:', saveError.message);
+      response.saved = false;
+      response.saveError = 'Plan generated but not saved to database';
+    }
 
     res.json(response);
   } catch (error) {
@@ -149,9 +222,106 @@ router.get('/test', (req, res) => {
     endpoints: {
       generate_plan: 'POST /api/planning/generate-plan',
       generate_quiz: 'POST /api/planning/generate-quiz',
+      get_saved_plans: 'GET /api/planning/saved-plans',
+      get_plan_by_id: 'GET /api/planning/saved-plans/:id',
       test: 'GET /api/planning/test'
     }
   });
+});
+
+// Get all saved teaching plans
+router.get('/saved-plans', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database not connected'
+      });
+    }
+
+    const plans = await Plan.find()
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.json({
+      success: true,
+      count: plans.length,
+      data: plans
+    });
+  } catch (error) {
+    console.error('Error fetching saved plans:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching saved plans',
+      error: error.message
+    });
+  }
+});
+
+// Get a specific teaching plan by ID
+router.get('/saved-plans/:id', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database not connected'
+      });
+    }
+
+    const plan = await Plan.findById(req.params.id);
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Teaching plan not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: plan
+    });
+  } catch (error) {
+    console.error('Error fetching plan:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching plan',
+      error: error.message
+    });
+  }
+});
+
+// Delete a teaching plan
+router.delete('/saved-plans/:id', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database not connected'
+      });
+    }
+
+    const plan = await Plan.findByIdAndDelete(req.params.id);
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Teaching plan not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Teaching plan deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting plan:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting plan',
+      error: error.message
+    });
+  }
 });
 
 // Generate quiz endpoint
@@ -534,6 +704,42 @@ function generateSampleQuestions(topic, week, difficulty, count) {
   }
   
   return questions;
+}
+
+// Fallback teaching plan generator
+function generateFallbackPlan(subject, grade, duration) {
+  console.log('🔧 Creating fallback plan for', subject, 'Grade', grade, duration, 'weeks');
+  
+  const weeks = [];
+  for (let i = 1; i <= duration; i++) {
+    weeks.push({
+      week: i,
+      topics: `${subject} - Week ${i} Topics`,
+      activities: [
+        `Interactive lesson on Week ${i} concepts`,
+        `Hands-on activity for Week ${i}`,
+        `Discussion and Q&A session`,
+        `Review and practice exercises`
+      ]
+    });
+  }
+  
+  return {
+    semester_plan: weeks,
+    lesson_aids: [
+      "Course textbook and supplementary materials",
+      "Interactive presentations and slides",
+      "Hands-on exercises and worksheets",
+      "Online resources and tutorials",
+      "Assessment rubrics and guidelines"
+    ],
+    assessments: [
+      "Weekly quizzes to assess understanding",
+      "Mid-term project presentation",
+      "Final comprehensive examination",
+      "Participation and engagement scores"
+    ]
+  };
 }
 
 export default router;

@@ -1,0 +1,30 @@
+{
+  "syllabusData": {
+    "subject": "Computer Science",
+    "grade": "10",
+    "topics": [
+      {
+        "title": "Introduction to Programming",
+        "description": "Learn the fundamentals of programming concepts, including variables, data types, and basic control structures.",
+        "weekNumber": 1,
+        "objectives": ["Understand variables and data types", "Learn basic control structures", "Write simple programs"]
+      },
+      {
+        "title": "Loops and Conditionals",
+        "description": "Master the use of loops and conditional statements to control program flow.",
+        "weekNumber": 2,
+        "objectives": ["Implement for and while loops", "Use if-else statements", "Combine conditionals with loops"]
+      }
+    ],
+    "focusAreas": [
+      {
+        "title": "Introduction to Programming",
+        "weekNumber": 1
+      }
+    ]
+  },
+  "studentProfile": {
+    "learningStyle": "visual",
+    "weeksFocused": [1, 2]
+  }
+}

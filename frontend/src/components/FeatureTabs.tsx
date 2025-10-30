@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
-import { BarChart3, Target, Users, Zap, Star, Brain } from 'lucide-react';
+import { BarChart3, Target, Users, Star, Brain, BookOpen, Youtube } from 'lucide-react';
 import Analytics from './Analytics';
 import PersonalizedLearning from './PersonalizedLearning';
 import CollaborationTools from './CollaborationTools';
-import AutoGrading from './AutoGrading';
 import PremiumTemplates from './PremiumTemplates';
 import QuizGenerator from './QuizGenerator';
+import AdaptiveLearning from './AdaptiveLearning';
+import VideoEnhancement from './VideoEnhancementNew';
 import { TeachingPlan } from '../types';
 
 interface Props {
   teachingPlan: TeachingPlan;
 }
 
-type TabType = 'analytics' | 'personalized' | 'collaboration' | 'grading' | 'templates' | 'quiz';
+type TabType = 'analytics' | 'personalized' | 'collaboration' | 'templates' | 'quiz' | 'adaptive' | 'videos';
 
 const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
   const [activeTab, setActiveTab] = useState<TabType>('analytics');
@@ -51,20 +52,28 @@ const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
       borderColor: 'border-green-500'
     },
     {
-      id: 'grading' as TabType,
-      label: 'Auto-Grading',
-      icon: Zap,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-500'
-    },
-    {
       id: 'templates' as TabType,
       label: 'Templates',
       icon: Star,
       color: 'text-pink-600',
       bgColor: 'bg-pink-50',
       borderColor: 'border-pink-500'
+    },
+    {
+      id: 'adaptive' as TabType,
+      label: 'Adaptive Learning',
+      icon: BookOpen,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-500'
+    },
+    {
+      id: 'videos' as TabType,
+      label: 'Video Enhancement',
+      icon: Youtube,
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-500'
     }
   ];
 
@@ -78,10 +87,12 @@ const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
         return <PersonalizedLearning teachingPlan={teachingPlan} />;
       case 'collaboration':
         return <CollaborationTools teachingPlan={teachingPlan} />;
-      case 'grading':
-        return <AutoGrading />;
       case 'templates':
         return <PremiumTemplates />;
+      case 'adaptive':
+        return <AdaptiveLearning teachingPlan={teachingPlan} />;
+      case 'videos':
+        return <VideoEnhancement />;
       default:
         return <Analytics teachingPlan={teachingPlan} />;
     }

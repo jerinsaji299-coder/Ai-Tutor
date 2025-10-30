@@ -10,7 +10,50 @@ interface Props {
 }
 
 const Dashboard: React.FC<Props> = ({ teachingPlan, onReset }) => {
+  console.log('🎯 Dashboard rendering with teachingPlan:', teachingPlan);
+  console.log('📊 teachingPlan type:', typeof teachingPlan);
+  console.log('📋 teachingPlan keys:', Object.keys(teachingPlan || {}));
+  
+  // Add safety checks
+  if (!teachingPlan) {
+    console.warn('⚠️ Dashboard: teachingPlan is null/undefined');
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-gray-600">Loading teaching plan...</p>
+        </div>
+      </div>
+    );
+  }
+
   const { semester_plan, lesson_aids, assessments, metadata } = teachingPlan;
+  
+  console.log('📚 semester_plan:', semester_plan);
+  console.log('📚 semester_plan length:', semester_plan?.length);
+  console.log('🎯 lesson_aids:', lesson_aids);
+  console.log('📝 assessments:', assessments);
+  console.log('ℹ️ metadata:', metadata);
+
+  // Validate semester_plan exists
+  if (!semester_plan || !Array.isArray(semester_plan) || semester_plan.length === 0) {
+    console.error('❌ Invalid semester_plan:', semester_plan);
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 font-semibold">Error: Invalid teaching plan format</p>
+          <p className="text-gray-600 mt-2">semester_plan is missing or empty</p>
+          <button
+            onClick={onReset}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  console.log('✅ Dashboard validation passed, rendering content');
 
   const downloadPDF = () => {
     const pdf = new jsPDF();
@@ -118,16 +161,27 @@ const Dashboard: React.FC<Props> = ({ teachingPlan, onReset }) => {
             </div>
           </div>
           <div className="p-6">
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
               {semester_plan.map((week) => (
-                <div key={week.week} className="border-l-4 border-indigo-500 pl-4 py-2">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="bg-indigo-100 text-indigo-800 text-sm font-medium px-2 py-1 rounded">
+                <div 
+                  key={week.week} 
+                  className="border-l-4 border-indigo-500 pl-6 py-4 bg-gradient-to-r from-indigo-50/50 to-transparent rounded-r-lg hover:from-indigo-50 transition-all duration-200"
+                >
+                  <div className="flex items-start space-x-3 mb-3">
+                    <span className="bg-indigo-600 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-sm flex-shrink-0">
                       Week {week.week}
                     </span>
-                    <span className="font-medium text-gray-900">{week.topics}</span>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 text-base leading-relaxed">
+                        {week.topics}
+                      </h4>
+                    </div>
                   </div>
-                  <p className="text-gray-600 text-sm">{week.activities}</p>
+                  <div className="ml-0 mt-3">
+                    <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                      {week.activities}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -137,19 +191,26 @@ const Dashboard: React.FC<Props> = ({ teachingPlan, onReset }) => {
         {/* Lesson Aids & Assessments */}
         <div className="space-y-6">
           {/* Lesson Aids */}
-          <div className="bg-white rounded-xl shadow-lg">
-            <div className="p-6 border-b">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="p-6 border-b bg-gradient-to-r from-green-50 to-emerald-50">
               <div className="flex items-center space-x-2">
                 <BookOpen className="h-5 w-5 text-green-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Lesson Aids</h3>
               </div>
+              <p className="text-sm text-gray-600 mt-1">Recommended teaching resources</p>
             </div>
             <div className="p-6">
-              <ul className="space-y-2">
-                {lesson_aids.map((aid, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="text-green-500 mt-1">•</span>
-                    <span className="text-gray-700 text-sm">{aid}</span>
+              <ul className="space-y-3">
+                {(lesson_aids && Array.isArray(lesson_aids) && lesson_aids.length > 0 ? lesson_aids : [
+                  "PowerPoint presentations",
+                  "Interactive video tutorials",
+                  "Hands-on worksheets",
+                  "Online coding platforms",
+                  "Reference materials"
+                ]).map((aid, index) => (
+                  <li key={index} className="flex items-start space-x-3 group">
+                    <span className="text-green-500 text-xl mt-0.5 group-hover:scale-125 transition-transform">•</span>
+                    <span className="text-gray-700 text-sm leading-relaxed flex-1">{aid}</span>
                   </li>
                 ))}
               </ul>
@@ -157,19 +218,27 @@ const Dashboard: React.FC<Props> = ({ teachingPlan, onReset }) => {
           </div>
 
           {/* Assessments */}
-          <div className="bg-white rounded-xl shadow-lg">
-            <div className="p-6 border-b">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="p-6 border-b bg-gradient-to-r from-orange-50 to-amber-50">
               <div className="flex items-center space-x-2">
                 <FileText className="h-5 w-5 text-orange-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Assessments</h3>
               </div>
+              <p className="text-sm text-gray-600 mt-1">Evaluation strategies</p>
             </div>
             <div className="p-6">
-              <ul className="space-y-2">
-                {assessments.map((assessment, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="text-orange-500 mt-1">•</span>
-                    <span className="text-gray-700 text-sm">{assessment}</span>
+              <ul className="space-y-3">
+                {(assessments && Array.isArray(assessments) && assessments.length > 0 ? assessments : [
+                  "Weekly quizzes to track progress",
+                  "Mid-term project evaluation",
+                  "Practical coding assignments",
+                  "Final comprehensive exam"
+                ]).map((assessment, index) => (
+                  <li key={index} className="flex items-start space-x-3 group">
+                    <span className="text-orange-500 text-xl mt-0.5 group-hover:scale-125 transition-transform">•</span>
+                    <span className="text-gray-700 text-sm leading-relaxed flex-1">
+                      {typeof assessment === 'string' ? assessment : JSON.stringify(assessment)}
+                    </span>
                   </li>
                 ))}
               </ul>
