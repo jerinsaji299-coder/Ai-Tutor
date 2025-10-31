@@ -92,7 +92,7 @@ const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
       case 'adaptive':
         return <AdaptiveLearning teachingPlan={teachingPlan} />;
       case 'videos':
-        return <VideoEnhancement />;
+        return <VideoEnhancement teachingPlan={teachingPlan} />;
       default:
         return <Analytics teachingPlan={teachingPlan} />;
     }

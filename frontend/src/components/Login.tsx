@@ -41,13 +41,7 @@ const Login: React.FC = () => {
           <p className="text-gray-600">Login to your AI Tutor account</p>
         </div>
 
-        {/* MongoDB Info Banner */}
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4 text-sm">
-          <p className="font-semibold mb-1">💡 Authentication requires MongoDB</p>
-          <p className="text-xs text-blue-600">
-            Install MongoDB locally or use MongoDB Atlas (free). See <code className="bg-blue-100 px-1 rounded">AUTHENTICATION_IMPLEMENTATION.md</code> for setup.
-          </p>
-        </div>
+        
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">

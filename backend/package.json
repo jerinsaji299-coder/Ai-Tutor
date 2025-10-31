@@ -24,6 +24,7 @@
     "mongoose": "^8.19.2",
     "node-fetch": "^3.3.2",
     "pdfkit": "^0.17.2",
+    "puppeteer": "^24.27.0",
     "youtube-search-api": "^2.0.1",
     "youtube-transcript": "^1.2.1"
   },

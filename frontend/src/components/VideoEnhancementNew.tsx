@@ -12,7 +12,7 @@ interface Video {
   hasTranscript?: boolean;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 interface Props {
   teachingPlan: TeachingPlan;
@@ -41,14 +41,25 @@ const VideoEnhancement: React.FC<Props> = ({ teachingPlan }) => {
 
     setLoading(true);
     setError(null);
+    setVideos([]);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/youtube/get-week-videos`, {
+      console.log('📹 Fetching videos for week:', selectedWeekPlan.week);
+      console.log('📹 Topic:', selectedWeekPlan.topics);
+      console.log('📹 API URL:', `${API_BASE_URL}/api/youtube/get-week-videos`);
+
+      const requestData = {
         weekNumber: selectedWeekPlan.week,
         weekTopic: selectedWeekPlan.topics,
         weekContent: selectedWeekPlan.activities,
         learningObjectives: []
-      });
+      };
+
+      console.log('📹 Request data:', requestData);
+
+      const response = await axios.post(`${API_BASE_URL}/api/youtube/get-week-videos`, requestData);
+
+      console.log('✅ Response received:', response.data);
 
       setVideos(response.data.videos || []);
       
@@ -56,8 +67,10 @@ const VideoEnhancement: React.FC<Props> = ({ teachingPlan }) => {
         setError('No videos found for this topic. Try selecting a different module.');
       }
     } catch (err: any) {
-      console.error('Error fetching videos:', err);
-      setError(err.response?.data?.error || 'Failed to fetch videos. Please try again.');
+      console.error('❌ Error fetching videos:', err);
+      console.error('❌ Error response:', err.response?.data);
+      console.error('❌ Error status:', err.response?.status);
+      setError(err.response?.data?.error || err.message || 'Failed to fetch videos. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +90,7 @@ const VideoEnhancement: React.FC<Props> = ({ teachingPlan }) => {
 
     try {
       // Generate the PDF
-      const generateResponse = await axios.post(`${API_BASE_URL}/youtube/generate-week-pdf`, {
+      const generateResponse = await axios.post(`${API_BASE_URL}/api/youtube/generate-week-pdf`, {
         weekNumber: selectedWeekPlan.week,
         weekTopic: selectedWeekPlan.topics,
         videos: videos
@@ -87,7 +100,7 @@ const VideoEnhancement: React.FC<Props> = ({ teachingPlan }) => {
 
       // Download the PDF
       const downloadResponse = await axios.get(
-        `${API_BASE_URL}/youtube/download-pdf/${filename}`,
+        `${API_BASE_URL}/api/youtube/download-pdf/${filename}`,
         { responseType: 'blob' }
       );
 

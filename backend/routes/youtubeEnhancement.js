@@ -1,5 +1,5 @@
 import express from 'express';
-import youtubeService from '../services/youtubeService.js';
+import YouTubeService from '../services/youtubeService.js';
 import pdfService from '../services/pdfService.js';
 import fs from 'fs';
 import path from 'path';
@@ -9,6 +9,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// Lazy initialization - create instance only when first needed
+let youtubeServiceInstance = null;
+function getYouTubeService() {
+  if (!youtubeServiceInstance) {
+    youtubeServiceInstance = new YouTubeService();
+  }
+  return youtubeServiceInstance;
+}
 
 /**
  * POST /api/youtube/enhance-curriculum
@@ -28,7 +37,7 @@ router.post('/enhance-curriculum', async (req, res) => {
     }
 
     // Generate video recommendations for all weeks
-    const enhancedData = await youtubeService.getCurriculumVideos(teachingPlan);
+    const enhancedData = await getYouTubeService().getCurriculumVideos(teachingPlan);
 
     res.json({
       success: true,
@@ -53,6 +62,11 @@ router.post('/get-week-videos', async (req, res) => {
   try {
     const { weekTopic, weekContent, learningObjectives } = req.body;
 
+    console.log('📥 Received request for week videos:');
+    console.log('   Topic:', weekTopic);
+    console.log('   Content:', weekContent ? weekContent.substring(0, 100) + '...' : 'none');
+    console.log('   Learning Objectives:', learningObjectives);
+
     if (!weekTopic) {
       return res.status(400).json({
         success: false,
@@ -61,15 +75,19 @@ router.post('/get-week-videos', async (req, res) => {
     }
 
     console.log(`🔍 Searching videos for: ${weekTopic}`);
+    console.log('🎥 Initializing YouTube service...');
 
     // Search for videos
-    const videos = await youtubeService.searchVideos(weekTopic, weekContent);
+    const videos = await getYouTubeService().searchVideos(weekTopic, weekContent);
+
+    console.log(`✅ Found ${videos.length} videos`);
 
     // Generate AI summaries for each video
     const videosWithSummaries = [];
     
     for (const video of videos) {
-      const videoWithSummary = await youtubeService.generateVideoSummary(
+      console.log(`🤖 Generating summary for: ${video.title}`);
+      const videoWithSummary = await getYouTubeService().generateVideoSummary(
         video,
         weekTopic,
         learningObjectives
@@ -78,6 +96,8 @@ router.post('/get-week-videos', async (req, res) => {
       videosWithSummaries.push(videoWithSummary);
     }
 
+    console.log(`✅ Generated summaries for ${videosWithSummaries.length} videos`);
+
     res.json({
       success: true,
       videos: videosWithSummaries
@@ -85,6 +105,7 @@ router.post('/get-week-videos', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error getting week videos:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get videos'
@@ -117,7 +138,7 @@ router.post('/generate-week-pdf', async (req, res) => {
 
     if (generateNotes && videos && videos.length > 0) {
       console.log(`🎥 Analyzing ${videos.length} video transcripts for study notes...`);
-      studyNotes = await youtubeService.generateStudyNotesFromVideos(
+      studyNotes = await getYouTubeService().generateStudyNotesFromVideos(
         weekData,
         videos
       );
@@ -177,7 +198,7 @@ router.post('/generate-curriculum-pdf', async (req, res) => {
         const videos = weeklyVideos[weekKey]?.videos || [];
         
         if (videos.length > 0) {
-          const notes = await youtubeService.generateStudyNotes(week, videos);
+          const notes = await getYouTubeService().generateStudyNotes(week, videos);
           weeklyNotes[week.week] = notes;
         }
       }

@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import Home from './components/Home';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -12,7 +13,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
   
-  return <>{children}</>;
+  return <ErrorBoundary>{children}</ErrorBoundary>;
 }
 
 function App() {

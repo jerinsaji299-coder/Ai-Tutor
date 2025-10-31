@@ -18,8 +18,8 @@ const Dashboard: React.FC<Props> = ({ teachingPlan, onReset }) => {
   if (!teachingPlan) {
     console.warn('⚠️ Dashboard: teachingPlan is null/undefined');
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
+      <div className="flex items-center justify-center h-64 bg-white rounded-xl shadow-lg m-4">
+        <div className="text-center p-8">
           <p className="text-gray-600">Loading teaching plan...</p>
         </div>
       </div>
@@ -37,11 +37,13 @@ const Dashboard: React.FC<Props> = ({ teachingPlan, onReset }) => {
   // Validate semester_plan exists
   if (!semester_plan || !Array.isArray(semester_plan) || semester_plan.length === 0) {
     console.error('❌ Invalid semester_plan:', semester_plan);
+    console.error('❌ Full teachingPlan object:', JSON.stringify(teachingPlan, null, 2));
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <p className="text-red-600 font-semibold">Error: Invalid teaching plan format</p>
+      <div className="flex items-center justify-center h-64 bg-white rounded-xl shadow-lg m-4">
+        <div className="text-center p-8">
+          <p className="text-red-600 font-semibold text-xl mb-2">Error: Invalid teaching plan format</p>
           <p className="text-gray-600 mt-2">semester_plan is missing or empty</p>
+          <p className="text-gray-500 text-sm mt-2">Check browser console for details</p>
           <button
             onClick={onReset}
             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"

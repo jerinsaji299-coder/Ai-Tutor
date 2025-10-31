@@ -29,33 +29,40 @@ function Home() {
 
   const handlePlanGenerated = (plan: TeachingPlan) => {
     console.log('📚 Teaching plan received in Home:', plan);
-    console.log('📊 Plan type:', typeof plan);
-    console.log('📋 Plan keys:', Object.keys(plan || {}));
-    console.log('📊 Semester plan array:', plan?.semester_plan);
-    console.log('📊 Semester plan length:', plan?.semester_plan?.length);
     
-    // Validate the plan structure
-    if (!plan) {
-      console.error('❌ Plan is null or undefined');
-      setError('Invalid teaching plan received. Please try again.');
-      return;
+    try {
+      console.log('📊 Plan type:', typeof plan);
+      console.log('📋 Plan keys:', plan ? Object.keys(plan) : 'null');
+      console.log('📊 Semester plan array:', plan?.semester_plan);
+      console.log('📊 Semester plan length:', plan?.semester_plan?.length);
+      
+      // Validate the plan structure
+      if (!plan) {
+        console.error('❌ Plan is null or undefined');
+        setError('Invalid teaching plan received. Please try again.');
+        return;
+      }
+      
+      if (!plan.semester_plan || !Array.isArray(plan.semester_plan)) {
+        console.error('❌ semester_plan is missing or not an array:', plan.semester_plan);
+        setError('Invalid teaching plan format. Please try again.');
+        return;
+      }
+      
+      if (plan.semester_plan.length === 0) {
+        console.error('❌ semester_plan is empty');
+        setError('Teaching plan has no weeks. Please try again.');
+        return;
+      }
+      
+      console.log('✅ Plan validation passed, setting state');
+      setTeachingPlan(plan);
+      setError(null);
+      console.log('✅ State updated successfully');
+    } catch (err) {
+      console.error('❌ Error in handlePlanGenerated:', err);
+      setError('Error processing teaching plan. Please try again.');
     }
-    
-    if (!plan.semester_plan || !Array.isArray(plan.semester_plan)) {
-      console.error('❌ semester_plan is missing or not an array:', plan.semester_plan);
-      setError('Invalid teaching plan format. Please try again.');
-      return;
-    }
-    
-    if (plan.semester_plan.length === 0) {
-      console.error('❌ semester_plan is empty');
-      setError('Teaching plan has no weeks. Please try again.');
-      return;
-    }
-    
-    console.log('✅ Plan validation passed, setting state');
-    setTeachingPlan(plan);
-    setError(null);
   };
 
   const handleReset = () => {

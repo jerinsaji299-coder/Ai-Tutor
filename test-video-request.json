@@ -1,0 +1,9 @@
+{
+  "weekTopic": "Introduction to Python Programming",
+  "weekContent": "Learn Python basics including variables, data types, operators, and simple programs",
+  "learningObjectives": [
+    "Understand Python syntax",
+    "Create simple programs",
+    "Use variables and operators"
+  ]
+}

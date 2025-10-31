@@ -7,14 +7,17 @@ class YouTubeService {
     this.baseUrl = 'https://www.youtube.com';
     this.apiKey = process.env.YOUTUBE_API_KEY;
     this.apiBaseUrl = 'https://www.googleapis.com/youtube/v3';
+    
     console.log('🎥 YouTube Service initialized');
+    console.log('🔑 API Key present:', !!this.apiKey);
+    console.log('🔑 API Key length:', this.apiKey ? this.apiKey.length : 0);
     
     if (!this.apiKey || this.apiKey === 'YOUR_YOUTUBE_API_KEY_HERE') {
       console.warn('⚠️ YouTube API key not configured. Using fallback mode.');
       this.useApiKey = false;
     } else {
       this.useApiKey = true;
-      console.log('✅ YouTube API key configured');
+      console.log('✅ YouTube API key configured - will use real YouTube Data API');
     }
   }
 
@@ -161,24 +164,32 @@ class YouTubeService {
    */
   async searchWithoutAPI(query, maxResults) {
     try {
-      const { default: youtubeSearch } = await import('youtube-search-api');
+      console.log('🔍 Using youtube-search-api fallback method...');
       
-      const result = await youtubeSearch.GetListByKeyword(query, false, maxResults);
-      
-      const videos = result.items.map(item => ({
-        id: item.id,
-        title: item.title,
-        url: `https://www.youtube.com/watch?v=${item.id}`,
-        channelTitle: item.channelTitle,
-        thumbnail: item.thumbnail.thumbnails[item.thumbnail.thumbnails.length - 1].url,
-        description: item.description || '',
-        duration: item.length?.simpleText || 'Unknown',
-        viewCount: item.viewCount || '0',
-        isSearchLink: false
-      }));
+      try {
+        const { default: youtubeSearch } = await import('youtube-search-api');
+        
+        const result = await youtubeSearch.GetListByKeyword(query, false, maxResults);
+        
+        const videos = result.items.map(item => ({
+          id: item.id,
+          title: item.title,
+          url: `https://www.youtube.com/watch?v=${item.id}`,
+          channelTitle: item.channelTitle,
+          thumbnail: item.thumbnail.thumbnails[item.thumbnail.thumbnails.length - 1].url,
+          description: item.description || '',
+          duration: item.length?.simpleText || 'Unknown',
+          viewCount: item.viewCount || '0',
+          isSearchLink: false
+        }));
 
-      console.log(`✅ Found ${videos.length} videos (no API key)`);
-      return videos;
+        console.log(`✅ Found ${videos.length} videos (no API key)`);
+        return videos;
+      } catch (importError) {
+        console.error('❌ youtube-search-api not available:', importError.message);
+        console.log('🔄 Using basic fallback videos...');
+        return this.getFallbackVideos(query);
+      }
 
     } catch (error) {
       console.error('❌ Error with youtube-search-api:', error);
@@ -621,4 +632,5 @@ ${weekData.topic} encompasses important concepts that form the foundation for ad
   }
 }
 
-export default new YouTubeService();
+// Export the class, not an instance, to allow lazy initialization
+export default YouTubeService;

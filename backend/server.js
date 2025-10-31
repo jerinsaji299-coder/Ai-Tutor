@@ -1,6 +1,10 @@
+import dotenv from "dotenv";
+
+// Load environment variables FIRST before any other imports
+dotenv.config();
+
 import express from "express";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
@@ -12,7 +16,10 @@ import youtubeEnhancementRoutes from "./routes/youtubeEnhancement.js";
 import authRoutes from "./routes/auth.js";
 import connectDB from "./config/database.js";
 
-dotenv.config();
+// Debug: Check if YouTube API key is loaded
+console.log('🔑 YouTube API Key loaded:', process.env.YOUTUBE_API_KEY ? 'YES (length: ' + process.env.YOUTUBE_API_KEY.length + ')' : 'NO');
+
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
