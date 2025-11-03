@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain, Play, Download, RefreshCw, CheckCircle, Clock, Star } from 'lucide-react';
+import { Brain, Play, Download, RefreshCw, CheckCircle, Clock, Star, Target } from 'lucide-react';
 import { TeachingPlan } from '../types';
 
 interface Question {
@@ -23,15 +23,22 @@ interface Quiz {
 
 interface Props {
   teachingPlan: TeachingPlan;
+  onQuizSubmit?: () => void;
 }
 
-const QuizGenerator: React.FC<Props> = ({ teachingPlan }) => {
+const QuizGenerator: React.FC<Props> = ({ teachingPlan, onQuizSubmit }) => {
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [generatedQuiz, setGeneratedQuiz] = useState<Quiz | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard'>('Medium');
   const [questionCount, setQuestionCount] = useState(10);
   const [error, setError] = useState<string>('');
+  
+  // Quiz-taking state
+  const [isQuizMode, setIsQuizMode] = useState(false);
+  const [userAnswers, setUserAnswers] = useState<{ [key: string]: string }>({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState({ correct: 0, total: 0, percentage: 0 });
 
   const handleGenerateQuiz = async () => {
     setIsGenerating(true);
@@ -81,6 +88,13 @@ const QuizGenerator: React.FC<Props> = ({ teachingPlan }) => {
 
           setGeneratedQuiz(quiz);
           console.log('✅ Quiz generated successfully from AI backend:', quiz);
+          
+          // Reset quiz state when new quiz is generated
+          setIsQuizMode(true);
+          setUserAnswers({});
+          setQuizSubmitted(false);
+          setQuizScore({ correct: 0, total: 0, percentage: 0 });
+          
           return;
         }
       } catch (backendError) {
@@ -104,12 +118,95 @@ const QuizGenerator: React.FC<Props> = ({ teachingPlan }) => {
 
       setGeneratedQuiz(quiz);
       console.log('✅ Quiz generated locally:', quiz);
+      
+      // Reset quiz state when new quiz is generated
+      setIsQuizMode(true);
+      setUserAnswers({});
+      setQuizSubmitted(false);
+      setQuizScore({ correct: 0, total: 0, percentage: 0 });
     } catch (err) {
       console.error('❌ Error generating quiz:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate quiz');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleAnswerSelect = (questionId: string, answer: string) => {
+    if (!quizSubmitted) {
+      setUserAnswers(prev => ({
+        ...prev,
+        [questionId]: answer
+      }));
+    }
+  };
+
+  const handleSubmitQuiz = () => {
+    if (!generatedQuiz) return;
+
+    // Calculate score
+    let correctCount = 0;
+    generatedQuiz.questions.forEach(question => {
+      const userAnswer = userAnswers[question.id];
+      if (userAnswer && userAnswer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()) {
+        correctCount++;
+      }
+    });
+
+    const total = generatedQuiz.questions.length;
+    const percentage = Math.round((correctCount / total) * 100);
+
+    setQuizScore({
+      correct: correctCount,
+      total,
+      percentage
+    });
+    setQuizSubmitted(true);
+
+    // Save results to localStorage for Adaptive Learning
+    const quizResult = {
+      week: generatedQuiz.week,
+      score: correctCount,
+      total,
+      percentage,
+      correctAnswers: correctCount,
+      wrongAnswers: total - correctCount,
+      topics: generatedQuiz.topic,
+      date: new Date().toISOString(),
+      questions: generatedQuiz.questions.map(q => ({
+        question: q.question,
+        userAnswer: userAnswers[q.id] || '',
+        correctAnswer: q.correctAnswer,
+        isCorrect: userAnswers[q.id]?.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()
+      }))
+    };
+
+    // Get existing results and add new one
+    const existingResults = localStorage.getItem('quizResults');
+    const results = existingResults ? JSON.parse(existingResults) : [];
+    results.push(quizResult);
+    localStorage.setItem('quizResults', JSON.stringify(results));
+
+    console.log('✅ Quiz submitted! Score:', percentage + '%');
+    console.log('📊 Results saved to localStorage for Adaptive Learning');
+    
+    // Redirect to Adaptive Learning tab after a short delay to show the score
+    setTimeout(() => {
+      if (onQuizSubmit) {
+        onQuizSubmit();
+      }
+    }, 3000); // 3 second delay to let user see their score
+  };
+
+  const handleRetakeQuiz = () => {
+    setUserAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore({ correct: 0, total: 0, percentage: 0 });
+    setIsQuizMode(true);
+  };
+
+  const handleViewAnswers = () => {
+    setIsQuizMode(false);
   };
 
   const generateLocalQuestions = (topic: string, week: number): Question[] => {
@@ -455,24 +552,102 @@ Explanation: ${q.explanation}
           {/* Quiz Questions */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h5 className="font-semibold text-gray-900">Questions ({generatedQuiz.questions.length})</h5>
-              <button
-                onClick={exportQuiz}
-                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
-              >
-                <Download className="h-4 w-4" />
-                <span>Export Quiz</span>
-              </button>
+              <h5 className="font-semibold text-gray-900">
+                {quizSubmitted ? 'Quiz Results' : `Questions (${generatedQuiz.questions.length})`}
+              </h5>
+              {!quizSubmitted && isQuizMode ? (
+                <div className="text-sm text-gray-600">
+                  {Object.keys(userAnswers).length} of {generatedQuiz.questions.length} answered
+                </div>
+              ) : (
+                <button
+                  onClick={exportQuiz}
+                  className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Export Quiz</span>
+                </button>
+              )}
             </div>
 
+            {/* Quiz Score Display (after submission) */}
+            {quizSubmitted && (
+              <div className={`rounded-lg p-6 text-center ${
+                quizScore.percentage >= 80 ? 'bg-green-50 border-2 border-green-500' :
+                quizScore.percentage >= 60 ? 'bg-yellow-50 border-2 border-yellow-500' :
+                'bg-red-50 border-2 border-red-500'
+              }`}>
+                <div className="text-6xl font-bold mb-2" style={{
+                  color: quizScore.percentage >= 80 ? '#10b981' :
+                         quizScore.percentage >= 60 ? '#f59e0b' : '#ef4444'
+                }}>
+                  {quizScore.percentage}%
+                </div>
+                <div className="text-xl font-semibold mb-2">
+                  {quizScore.percentage >= 80 ? '🎉 Excellent!' :
+                   quizScore.percentage >= 60 ? '👍 Good Job!' : '📚 Keep Practicing!'}
+                </div>
+                <div className="text-gray-700">
+                  You got {quizScore.correct} out of {quizScore.total} questions correct
+                </div>
+                
+                {/* Redirect notification */}
+                <div className="mt-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
+                  <p className="text-blue-800 text-sm font-medium">
+                    🎯 Redirecting to Adaptive Learning in 3 seconds...
+                  </p>
+                  <p className="text-blue-600 text-xs mt-1">
+                    Get personalized recommendations based on your performance!
+                  </p>
+                </div>
+                
+                <div className="mt-4 flex justify-center space-x-3">
+                  <button
+                    onClick={() => onQuizSubmit && onQuizSubmit()}
+                    className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors font-semibold shadow-lg"
+                  >
+                    <Target className="h-4 w-4" />
+                    <span>View My Performance</span>
+                  </button>
+                  <button
+                    onClick={handleRetakeQuiz}
+                    className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Retake Quiz</span>
+                  </button>
+                  <button
+                    onClick={handleViewAnswers}
+                    className="flex items-center space-x-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Review Answers</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quiz Questions - Interactive Mode or Review Mode */}
             {generatedQuiz.questions.map((question, index) => (
-              <div key={question.id} className="border border-gray-200 rounded-lg p-4">
+              <div key={question.id} className={`border rounded-lg p-4 ${
+                quizSubmitted && userAnswers[question.id]?.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
+                  ? 'border-green-500 bg-green-50'
+                  : quizSubmitted && userAnswers[question.id]
+                  ? 'border-red-500 bg-red-50'
+                  : 'border-gray-200'
+              }`}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-start space-x-3">
-                    <span className="bg-purple-100 text-purple-800 text-sm font-medium px-2 py-1 rounded">
+                    <span className={`text-sm font-medium px-3 py-1 rounded ${
+                      quizSubmitted && userAnswers[question.id]?.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
+                        ? 'bg-green-600 text-white'
+                        : quizSubmitted && userAnswers[question.id]
+                        ? 'bg-red-600 text-white'
+                        : 'bg-purple-100 text-purple-800'
+                    }`}>
                       Q{index + 1}
                     </span>
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium text-gray-900">{question.question}</p>
                       <div className="flex items-center space-x-2 mt-2">
                         <span className="text-lg">{getQuestionTypeIcon(question.type)}</span>
@@ -486,66 +661,147 @@ Explanation: ${q.explanation}
                   <span className="text-sm text-gray-500">10 pts</span>
                 </div>
 
-                {/* Question Options */}
+                {/* Multiple Choice Options */}
                 {question.type === 'multiple-choice' && question.options && (
-                  <div className="ml-16 space-y-2">
-                    {question.options.map((option, optIndex) => (
-                      <div key={optIndex} className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-600">
-                          {String.fromCharCode(65 + optIndex)}.
-                        </span>
-                        <span className={`text-sm ${option === question.correctAnswer ? 'text-green-700 font-medium' : 'text-gray-700'}`}>
-                          {option}
-                          {option === question.correctAnswer && (
-                            <CheckCircle className="inline h-4 w-4 ml-1 text-green-500" />
+                  <div className="ml-12 space-y-2">
+                    {question.options.map((option, optIndex) => {
+                      const isSelected = userAnswers[question.id] === option;
+                      const isCorrect = option === question.correctAnswer;
+                      const showCorrect = quizSubmitted; // Only show correct answers after submission
+                      
+                      return (
+                        <label
+                          key={optIndex}
+                          className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                            showCorrect && isCorrect ? 'bg-green-100 border-2 border-green-500' :
+                            quizSubmitted && isSelected && !isCorrect ? 'bg-red-100 border-2 border-red-500' :
+                            isSelected ? 'bg-purple-100 border-2 border-purple-500' :
+                            'bg-gray-50 border-2 border-transparent hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={question.id}
+                            value={option}
+                            checked={isSelected}
+                            onChange={(e) => handleAnswerSelect(question.id, e.target.value)}
+                            disabled={quizSubmitted}
+                            className="h-4 w-4 text-purple-600"
+                          />
+                          <span className="text-sm text-gray-700 flex-1">
+                            {String.fromCharCode(65 + optIndex)}. {option}
+                          </span>
+                          {showCorrect && isCorrect && (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
                           )}
-                        </span>
-                      </div>
-                    ))}
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
 
+                {/* True/False Options */}
                 {question.type === 'true-false' && (
-                  <div className="ml-16 space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">A.</span>
-                      <span className={`text-sm ${question.correctAnswer === 'True' ? 'text-green-700 font-medium' : 'text-gray-700'}`}>
-                        True
-                        {question.correctAnswer === 'True' && (
-                          <CheckCircle className="inline h-4 w-4 ml-1 text-green-500" />
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">B.</span>
-                      <span className={`text-sm ${question.correctAnswer === 'False' ? 'text-green-700 font-medium' : 'text-gray-700'}`}>
-                        False
-                        {question.correctAnswer === 'False' && (
-                          <CheckCircle className="inline h-4 w-4 ml-1 text-green-500" />
-                        )}
-                      </span>
-                    </div>
+                  <div className="ml-12 space-y-2">
+                    {['True', 'False'].map((option, optIndex) => {
+                      const isSelected = userAnswers[question.id] === option;
+                      const isCorrect = option === question.correctAnswer;
+                      const showCorrect = quizSubmitted; // Only show correct answers after submission
+                      
+                      return (
+                        <label
+                          key={optIndex}
+                          className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                            showCorrect && isCorrect ? 'bg-green-100 border-2 border-green-500' :
+                            quizSubmitted && isSelected && !isCorrect ? 'bg-red-100 border-2 border-red-500' :
+                            isSelected ? 'bg-purple-100 border-2 border-purple-500' :
+                            'bg-gray-50 border-2 border-transparent hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={question.id}
+                            value={option}
+                            checked={isSelected}
+                            onChange={(e) => handleAnswerSelect(question.id, e.target.value)}
+                            disabled={quizSubmitted}
+                            className="h-4 w-4 text-purple-600"
+                          />
+                          <span className="text-sm text-gray-700 flex-1">
+                            {String.fromCharCode(65 + optIndex)}. {option}
+                          </span>
+                          {showCorrect && isCorrect && (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
 
+                {/* Short Answer */}
                 {question.type === 'short-answer' && (
-                  <div className="ml-16">
-                    <div className="bg-gray-50 p-3 rounded border-l-4 border-green-500">
-                      <p className="text-sm text-gray-700">
-                        <strong>Sample Answer:</strong> {question.correctAnswer}
+                  <div className="ml-12">
+                    <textarea
+                      value={userAnswers[question.id] || ''}
+                      onChange={(e) => handleAnswerSelect(question.id, e.target.value)}
+                      disabled={quizSubmitted}
+                      placeholder="Type your answer here..."
+                      className="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100"
+                      rows={3}
+                    />
+                  </div>
+                )}
+
+                {/* Show explanation after submission only */}
+                {quizSubmitted && (
+                  <div className="ml-12 mt-3">
+                    {userAnswers[question.id] && (
+                      <div className={`p-3 rounded mb-2 ${
+                        userAnswers[question.id]?.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        <strong>Your answer:</strong> {userAnswers[question.id]}
+                      </div>
+                    )}
+                    {question.type === 'short-answer' && (
+                      <div className="bg-blue-50 p-3 rounded mb-2">
+                        <p className="text-sm text-blue-800">
+                          <strong>Sample Answer:</strong> {question.correctAnswer}
+                        </p>
+                      </div>
+                    )}
+                    <div className="bg-blue-50 p-3 rounded">
+                      <p className="text-sm text-blue-800">
+                        <strong>Explanation:</strong> {question.explanation}
                       </p>
                     </div>
                   </div>
                 )}
-
-                {/* Explanation */}
-                <div className="ml-16 mt-3 bg-blue-50 p-3 rounded">
-                  <p className="text-sm text-blue-800">
-                    <strong>Explanation:</strong> {question.explanation}
-                  </p>
-                </div>
               </div>
             ))}
+
+            {/* Submit Button */}
+            {!quizSubmitted && generatedQuiz.questions.length > 0 && (
+              <div className="flex flex-col items-center pt-6">
+                <button
+                  onClick={handleSubmitQuiz}
+                  disabled={Object.keys(userAnswers).length !== generatedQuiz.questions.length}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg font-semibold shadow-lg"
+                >
+                  <CheckCircle className="h-5 w-5" />
+                  <span>Submit Quiz</span>
+                </button>
+                {Object.keys(userAnswers).length !== generatedQuiz.questions.length && (
+                  <p className="text-sm text-red-600 mt-3 text-center">
+                    ⚠️ Please answer all {generatedQuiz.questions.length} questions before submitting
+                    <br />
+                    <span className="text-gray-600">({Object.keys(userAnswers).length} of {generatedQuiz.questions.length} answered)</span>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Quiz Stats */}

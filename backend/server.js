@@ -8,16 +8,60 @@ import mongoose from "mongoose";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
+import bcrypt from "bcryptjs";
 import Plan from "./models/Plan.js";
+import User from "./models/User.js";
 import planningRoutes from "./routes/planning.js";
 import hybridPlanningRoutes from "./routes/hybridPlanning.js";
 import adaptiveLearningRoutes from "./routes/adaptiveLearning.js";
 import youtubeEnhancementRoutes from "./routes/youtubeEnhancement.js";
 import authRoutes from "./routes/auth.js";
+import studyNotesRoutes from "./routes/studyNotes.js";
 import connectDB from "./config/database.js";
 
 // Debug: Check if YouTube API key is loaded
 console.log('🔑 YouTube API Key loaded:', process.env.YOUTUBE_API_KEY ? 'YES (length: ' + process.env.YOUTUBE_API_KEY.length + ')' : 'NO');
+
+// Function to seed demo users into MongoDB
+const seedDemoUsers = async () => {
+  try {
+    const demoUsers = [
+      {
+        name: 'John Student',
+        email: 'student@demo.com',
+        password: 'demo123',
+        role: 'student'
+      },
+      {
+        name: 'Jane Teacher',
+        email: 'teacher@demo.com',
+        password: 'demo123',
+        role: 'teacher'
+      },
+      {
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'test123',
+        role: 'student'
+      }
+    ];
+
+    for (const userData of demoUsers) {
+      const existingUser = await User.findOne({ email: userData.email });
+      if (!existingUser) {
+        await User.create(userData);
+        console.log(`✅ Created demo user: ${userData.email}`);
+      }
+    }
+    
+    console.log('📝 Demo accounts available for testing:');
+    console.log('   1. student@demo.com / demo123 (Student)');
+    console.log('   2. teacher@demo.com / demo123 (Teacher)');
+    console.log('   3. test@example.com / test123 (Student)');
+  } catch (error) {
+    console.error('❌ Error seeding demo users:', error.message);
+  }
+};
 
 
 const app = express();
@@ -42,18 +86,18 @@ app.use('/api', limiter);
 
 // MongoDB Connection
 const mongoURI = process.env.MONGODB_URI;
-if (mongoURI && mongoURI !== 'mongodb://localhost:27017/ai-tutor' && !mongoURI.includes('username:password') && !mongoURI.includes('<db_password>')) {
-  console.log('🔄 Attempting to connect to MongoDB...');
-  connectDB();
-} else if (mongoURI && mongoURI.includes('localhost')) {
-  console.log('🔄 Attempting to connect to local MongoDB...');
-  connectDB();
-} else {
-  console.log('📝 MongoDB not configured - app running in AI-only mode');
-  if (process.env.MONGODB_OPTIONAL === 'true') {
-    console.log('⚠️  Authentication features will be disabled without MongoDB');
+console.log('🔄 Connecting to MongoDB...');
+console.log('🔍 MongoDB URI (masked):', mongoURI?.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@') || 'mongodb://localhost:27017/ai-tutor');
+
+// Connect to MongoDB and seed demo users
+connectDB().then(async (connection) => {
+  if (connection) {
+    // Seed demo users after successful connection
+    await seedDemoUsers();
   }
-}
+}).catch((err) => {
+  console.error('Failed to initialize database:', err);
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -61,6 +105,7 @@ app.use('/api/planning', planningRoutes);
 app.use('/api/hybrid', hybridPlanningRoutes);
 app.use('/api/adaptive', adaptiveLearningRoutes);
 app.use('/api/youtube', youtubeEnhancementRoutes);
+app.use('/api/study-notes', studyNotesRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'AI Tutor Backend is running!' });

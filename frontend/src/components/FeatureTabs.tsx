@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { BarChart3, Target, Users, Star, Brain, BookOpen, Youtube } from 'lucide-react';
+import { BarChart3, Target, Users, Star, Brain, BookOpen, Youtube, FileText } from 'lucide-react';
 import Analytics from './Analytics';
 import PersonalizedLearning from './PersonalizedLearning';
 import CollaborationTools from './CollaborationTools';
-import PremiumTemplates from './PremiumTemplates';
 import QuizGenerator from './QuizGenerator';
-import AdaptiveLearning from './AdaptiveLearning';
+import AdaptiveLearning from './AdaptiveLearning_New';
 import VideoEnhancement from './VideoEnhancementNew';
+import StudyNotes from './StudyNotes';
 import { TeachingPlan } from '../types';
 
 interface Props {
   teachingPlan: TeachingPlan;
 }
 
-type TabType = 'analytics' | 'personalized' | 'collaboration' | 'templates' | 'quiz' | 'adaptive' | 'videos';
+type TabType = 'analytics' | 'personalized' | 'collaboration' | 'quiz' | 'adaptive' | 'videos' | 'studyNotes';
 
 const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
   const [activeTab, setActiveTab] = useState<TabType>('analytics');
@@ -52,14 +52,6 @@ const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
       borderColor: 'border-green-500'
     },
     {
-      id: 'templates' as TabType,
-      label: 'Templates',
-      icon: Star,
-      color: 'text-pink-600',
-      bgColor: 'bg-pink-50',
-      borderColor: 'border-pink-500'
-    },
-    {
       id: 'adaptive' as TabType,
       label: 'Adaptive Learning',
       icon: BookOpen,
@@ -74,6 +66,14 @@ const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
       color: 'text-red-600',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-500'
+    },
+    {
+      id: 'studyNotes' as TabType,
+      label: 'Study Notes',
+      icon: FileText,
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-50',
+      borderColor: 'border-teal-500'
     }
   ];
 
@@ -82,17 +82,17 @@ const FeatureTabs: React.FC<Props> = ({ teachingPlan }) => {
       case 'analytics':
         return <Analytics teachingPlan={teachingPlan} />;
       case 'quiz':
-        return <QuizGenerator teachingPlan={teachingPlan} />;
+        return <QuizGenerator teachingPlan={teachingPlan} onQuizSubmit={() => setActiveTab('adaptive')} />;
       case 'personalized':
         return <PersonalizedLearning teachingPlan={teachingPlan} />;
       case 'collaboration':
         return <CollaborationTools teachingPlan={teachingPlan} />;
-      case 'templates':
-        return <PremiumTemplates />;
       case 'adaptive':
         return <AdaptiveLearning teachingPlan={teachingPlan} />;
       case 'videos':
         return <VideoEnhancement teachingPlan={teachingPlan} />;
+      case 'studyNotes':
+        return <StudyNotes teachingPlan={teachingPlan} />;
       default:
         return <Analytics teachingPlan={teachingPlan} />;
     }

@@ -9,9 +9,14 @@ interface Props {
 const Analytics: React.FC<Props> = ({ teachingPlan }) => {
   // Calculate analytics from the teaching plan
   const totalWeeks = teachingPlan.semester_plan.length;
-  const totalActivities = teachingPlan.semester_plan.reduce((sum, week) => 
-    sum + (week.activities.split('.').length - 1), 0
-  );
+  const totalActivities = teachingPlan.semester_plan.reduce((sum, week) => {
+    const activities = typeof week.activities === 'string' 
+      ? week.activities.split('.').length - 1 
+      : Array.isArray(week.activities) 
+        ? (week.activities as any[]).length 
+        : 0;
+    return sum + activities;
+  }, 0);
   const avgActivitiesPerWeek = Math.round(totalActivities / totalWeeks);
   const totalAssessments = teachingPlan.assessments.length;
 
